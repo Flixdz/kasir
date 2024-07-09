@@ -1,6 +1,7 @@
 import streamlit as st
 import openpyxl
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 import pandas as pd  # Pastikan Anda mengimpor pandas untuk menggunakan DataFrame
 
 # Fungsi untuk membaca data barang dari file Excel
@@ -207,17 +208,46 @@ def beli_barang(barang):
         st.warning("Belum ada barang yang dipilih.")
 
 # Fungsi untuk mencetak bukti pembayaran
+# Fungsi untuk mencetak bukti pembayaran
 def cetak_bukti_pembayaran(transaksi):
     st.subheader("Bukti Pembayaran")
-    df_transaksi = pd.DataFrame(transaksi)
-    st.table(df_transaksi)
-    st.write(f"Total Pembayaran: Rp {df_transaksi['Total Harga'].sum()}")
+    
+    # Inisialisasi workbook dan worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Bukti Pembayaran"
+    
+    # Menulis header kolom
+    ws['A1'] = "ID Barang"
+    ws['B1'] = "Nama Barang"
+    ws['C1'] = "Harga Satuan"
+    ws['D1'] = "Jumlah"
+    ws['E1'] = "Total Harga"
+    
+    # Menulis data transaksi
+    row = 2
+    total_semua_barang = 0  # Variabel untuk menghitung total semua barang
+    for trx in transaksi:
+        ws.cell(row=row, column=1).value = trx['ID Barang']
+        ws.cell(row=row, column=2).value = trx['Nama Barang']
+        ws.cell(row=row, column=3).value = trx['Harga Satuan']
+        ws.cell(row=row, column=4).value = trx['Jumlah']
+        ws.cell(row=row, column=5).value = trx['Total Harga']
+        total_semua_barang += trx['Total Harga']  # Hitung total harga semua barang
+        row += 1
+    
+    # Menambahkan baris untuk total harga semua barang
+    ws.cell(row=row, column=4).value = "Total Belanja"
+    ws.cell(row=row, column=5).value = total_semua_barang
+    ws['D' + str(row)].font = Font(bold=True)
+    ws['E' + str(row)].font = Font(bold=True)
+    ws['E' + str(row)].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     
     # Menyimpan ke file Excel sementara
     nama_file_bukti = "bukti_pembayaran.xlsx"
-    df_transaksi.to_excel(nama_file_bukti, index=False)
+    wb.save(nama_file_bukti)
     
-    # Menyediakan link download untuk bukti pembayaran
+    # Tampilkan link untuk mengunduh file Excel
     with open(nama_file_bukti, "rb") as f:
         st.download_button(
             label="Unduh Bukti Pembayaran",
@@ -225,6 +255,11 @@ def cetak_bukti_pembayaran(transaksi):
             file_name=nama_file_bukti,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+    
+    # Tampilkan total belanjaan di antarmuka pengguna
+    st.write(f"Total belanjaan adalah Rp {total_semua_barang}")
+
+
 
 # Fungsi untuk menampilkan menu utama
 def tampilkan_menu(barang):
