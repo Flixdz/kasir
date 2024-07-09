@@ -246,10 +246,13 @@ def tampilkan_menu(barang):
 
 # Main function untuk menjalankan aplikasi
 def main():
-    st.title("Aplikasi Management Kasir")
-    st.subheader('_dibuat Oleh_ :red[Muh]:blue[fhri] is')
-    st.write("Selamat datang di aplikasi manajemen barang. Pilih menu di samping untuk memulai.")
+    from PIL import Image
+    image = Image.open("image/dark.gif")
     
+    st.title("Aplikasi Management Kasir")
+    st.image(image, width=200)
+    st.subheader('By Flixdz a.k.a Muhfhri_.')
+    st.write("Selamat datang di aplikasi manajemen barang. Pilih menu di samping untuk memulai.")
     barang = baca_dari_excel("data_barang.xlsx")  # Baca data barang dari file Excel
     
     # Simpan data barang dalam session state
