@@ -1,6 +1,7 @@
 import streamlit as st
 import openpyxl
 from openpyxl import Workbook
+import pandas as pd  # Pastikan Anda mengimpor pandas untuk menggunakan DataFrame
 
 # Fungsi untuk membaca data barang dari file Excel
 def baca_dari_excel(nama_file):
@@ -57,11 +58,25 @@ def simpan_ke_excel(barang, nama_file):
 
 # Fungsi untuk menampilkan semua barang di Streamlit
 def tampilkan_semua_barang(barang):
-    st.write("Daftar Barang:")
-    st.write("ID | Nama Barang | Harga | Stok")
-    st.write("--------------------------------")
+    st.subheader("Daftar Barang")
+    
+    # Membuat data frame dari dictionary barang
+    data_barang = {
+        "ID": [],
+        "Nama Barang": [],
+        "Harga": [],
+        "Stok": []
+    }
+    
     for id_barang, detail_barang in barang.items():
-        st.write(f"{id_barang} | {detail_barang['nama']} | {detail_barang['harga']} | {detail_barang['stok']}")
+        data_barang["ID"].append(id_barang)
+        data_barang["Nama Barang"].append(detail_barang['nama'])
+        data_barang["Harga"].append(detail_barang['harga'])
+        data_barang["Stok"].append(detail_barang['stok'])
+    
+    # Menampilkan data barang dalam format tabel
+    df_barang = pd.DataFrame(data_barang)
+    st.dataframe(df_barang, use_container_width=True)
 
 # Fungsi untuk menambah barang baru
 def tambah_barang(barang):
@@ -73,7 +88,9 @@ def tambah_barang(barang):
     if st.button("Tambah"):
         id_barang_baru = max(barang.keys(), default=0) + 1
         barang[id_barang_baru] = {'nama': nama, 'harga': harga, 'stok': stok}
+        simpan_ke_excel(barang, "data_barang.xlsx")  # Simpan data barang yang sudah diupdate ke file Excel
         st.success(f"Barang '{nama}' dengan ID {id_barang_baru} berhasil ditambahkan.")
+        st.session_state.barang = barang  # Update session state
 
 # Fungsi untuk mencari barang berdasarkan ID
 def cari_barang(barang):
@@ -89,6 +106,33 @@ def cari_barang(barang):
             st.write(f"Stok: {detail['stok']}")
         else:
             st.error(f"Barang dengan ID {id_barang} tidak ditemukan.")
+
+# Fungsi untuk memodifikasi atau menghapus barang
+def modifikasi_barang(barang):
+    st.subheader("Modifikasi Barang")
+    
+    id_barang = st.number_input("Masukkan ID barang yang ingin dimodifikasi atau dihapus:", min_value=1, step=1)
+    
+    if id_barang in barang:
+        nama_baru = st.text_input("Masukkan nama baru:", value=barang[id_barang]['nama'])
+        harga_baru = st.number_input("Masukkan harga baru:", min_value=0, value=barang[id_barang]['harga'])
+        stok_baru = st.number_input("Masukkan stok baru:", min_value=0, step=1, value=barang[id_barang]['stok'])
+        
+        if st.button("Simpan Perubahan"):
+            barang[id_barang]['nama'] = nama_baru
+            barang[id_barang]['harga'] = harga_baru
+            barang[id_barang]['stok'] = stok_baru
+            simpan_ke_excel(barang, "data_barang.xlsx")  # Simpan data barang yang sudah diupdate ke file Excel
+            st.success(f"Barang dengan ID {id_barang} berhasil dimodifikasi.")
+            st.session_state.barang = barang  # Update session state
+        
+        if st.button("Hapus Barang"):
+            del barang[id_barang]
+            simpan_ke_excel(barang, "data_barang.xlsx")  # Simpan data barang yang sudah diupdate ke file Excel
+            st.success(f"Barang dengan ID {id_barang} berhasil dihapus.")
+            st.session_state.barang = barang  # Update session state
+    else:
+        st.error(f"Barang dengan ID {id_barang} tidak ditemukan.")
 
 # Inisialisasi counter transaksi
 counter_transaksi = 1
@@ -155,6 +199,7 @@ def beli_barang(barang):
                 barang[id_barang]['stok'] -= jumlah  # Update stok barang
             
             cetak_bukti_pembayaran(transaksi)
+            simpan_ke_excel(barang, "data_barang.xlsx")  # Simpan data barang yang sudah diupdate ke file Excel
             st.success("Pembelian berhasil diproses!")
             # Kosongkan list transaksi setelah mencetak bukti pembayaran
             transaksi = []
@@ -164,38 +209,27 @@ def beli_barang(barang):
 # Fungsi untuk mencetak bukti pembayaran
 def cetak_bukti_pembayaran(transaksi):
     st.subheader("Bukti Pembayaran")
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Bukti Pembayaran"
-    
-    # Menulis header kolom
-    ws['A1'] = "ID Barang"
-    ws['B1'] = "Nama Barang"
-    ws['C1'] = "Harga Satuan"
-    ws['D1'] = "Jumlah"
-    ws['E1'] = "Total Harga"
-    
-    # Menulis data transaksi
-    row = 2
-    for trx in transaksi:
-        ws.cell(row=row, column=1).value = trx['ID Barang']
-        ws.cell(row=row, column=2).value = trx['Nama Barang']
-        ws.cell(row=row, column=3).value = trx['Harga Satuan']
-        ws.cell(row=row, column=4).value = trx['Jumlah']
-        ws.cell(row=row, column=5).value = trx['Total Harga']
-        row += 1
+    df_transaksi = pd.DataFrame(transaksi)
+    st.table(df_transaksi)
+    st.write(f"Total Pembayaran: Rp {df_transaksi['Total Harga'].sum()}")
     
     # Menyimpan ke file Excel sementara
     nama_file_bukti = "bukti_pembayaran.xlsx"
-    wb.save(nama_file_bukti)
+    df_transaksi.to_excel(nama_file_bukti, index=False)
     
-    # Tampilkan link untuk mengunduh file Excel
-    st.success(f"Bukti pembayaran berhasil disimpan. Silakan unduh file [di sini]({nama_file_bukti}).")
+    # Menyediakan link download untuk bukti pembayaran
+    with open(nama_file_bukti, "rb") as f:
+        st.download_button(
+            label="Unduh Bukti Pembayaran",
+            data=f,
+            file_name=nama_file_bukti,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-# Fungsi untuk menampilkan menu
+# Fungsi untuk menampilkan menu utama
 def tampilkan_menu(barang):
     st.sidebar.title("Menu")
-    pilihan_menu = st.sidebar.selectbox("Pilih menu:", ["Tampilkan Semua Barang", "Tambah Barang Baru", "Cari Barang", "Beli Barang", "Keluar"])
+    pilihan_menu = st.sidebar.selectbox("Pilih menu:", ["Tampilkan Semua Barang", "Tambah Barang Baru", "Cari Barang", "Beli Barang", "Modifikasi Barang", "Keluar"])
     
     if pilihan_menu == "Tampilkan Semua Barang":
         tampilkan_semua_barang(barang)
@@ -205,18 +239,24 @@ def tampilkan_menu(barang):
         cari_barang(barang)
     elif pilihan_menu == "Beli Barang":
         beli_barang(barang)
+    elif pilihan_menu == "Modifikasi Barang":
+        modifikasi_barang(barang)
     elif pilihan_menu == "Keluar":
         st.warning("Keluar dari aplikasi.")
 
-# Nama file Excel untuk menyimpan data barang
-nama_file_excel = "data_barang.xlsx"
+# Main function untuk menjalankan aplikasi
+def main():
+    st.title("Aplikasi Management Kasir")
+    st.subheader('_dibuat Oleh_ :red[Muh]:blue[fhri] is')
+    st.write("Selamat datang di aplikasi manajemen barang. Pilih menu di samping untuk memulai.")
+    
+    barang = baca_dari_excel("data_barang.xlsx")  # Baca data barang dari file Excel
+    
+    # Simpan data barang dalam session state
+    if 'barang' not in st.session_state:
+        st.session_state.barang = barang
+    
+    tampilkan_menu(st.session_state.barang)  # Tampilkan menu utama
 
-# Memuat data barang dari file Excel (jika ada)
-barang = baca_dari_excel(nama_file_excel)
-
-# Tampilkan aplikasi kasir menggunakan Streamlit
-st.title("Aplikasi Kasir")
-tampilkan_menu(barang)
-
-# Simpan data barang ke file Excel setelah selesai
-simpan_ke_excel(barang, nama_file_excel)
+if __name__ == "__main__":
+    main()
